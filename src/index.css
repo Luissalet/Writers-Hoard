@@ -1,0 +1,188 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-deep: #07070d;
+  --color-surface: #111119;
+  --color-elevated: #1a1a25;
+  --color-border: #2a2a3a;
+  --color-border-hover: #3a3a4f;
+  --color-text-primary: #e8e5e0;
+  --color-text-muted: #8a8690;
+  --color-text-dim: #5a5665;
+  --color-accent-gold: #c4973b;
+  --color-accent-amber: #e4a853;
+  --color-accent-plum: #7c5cbf;
+  --color-accent-plum-light: #9b7ed8;
+  --color-yarn-red: #c4463a;
+  --color-yarn-green: #4a9e6d;
+  --color-yarn-blue: #4a7ec4;
+  --color-yarn-yellow: #d4a843;
+  --color-success: #4a9e6d;
+  --color-warning: #d4a843;
+  --color-danger: #c4463a;
+
+  --font-serif: 'Cinzel', serif;
+  --font-sans: 'Source Sans 3', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-deep);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* Grain texture overlay */
+.grain-bg::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  z-index: 9999;
+}
+
+/* TipTap editor styles */
+.tiptap-editor .ProseMirror {
+  outline: none;
+  min-height: 200px;
+  padding: 1rem;
+}
+
+.tiptap-editor .ProseMirror p {
+  margin: 0.5em 0;
+}
+
+.tiptap-editor .ProseMirror h1,
+.tiptap-editor .ProseMirror h2,
+.tiptap-editor .ProseMirror h3 {
+  font-family: var(--font-serif);
+  color: var(--color-accent-gold);
+  margin: 1em 0 0.5em;
+}
+
+.tiptap-editor .ProseMirror a {
+  color: var(--color-accent-plum-light);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tiptap-editor .ProseMirror ul,
+.tiptap-editor .ProseMirror ol {
+  padding-left: 1.5rem;
+}
+
+.tiptap-editor .ProseMirror blockquote {
+  border-left: 3px solid var(--color-accent-gold);
+  padding-left: 1rem;
+  margin-left: 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.tiptap-editor .ProseMirror code {
+  font-family: var(--font-mono);
+  background: var(--color-elevated);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.tiptap-editor .ProseMirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-text-dim);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Backlink style */
+.backlink {
+  color: var(--color-accent-plum-light);
+  background: rgba(124, 92, 191, 0.1);
+  padding: 0 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.backlink:hover {
+  background: rgba(124, 92, 191, 0.2);
+}
+
+/* React Flow customizations */
+.react-flow__background {
+  background-color: var(--color-deep) !important;
+}
+
+.react-flow__minimap {
+  background-color: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Cork board texture for yarn */
+.cork-bg {
+  background-color: #2a1f14;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(60, 40, 20, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(50, 35, 18, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(70, 45, 22, 0.2) 0%, transparent 50%);
+}
+
+/* Animation classes */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 151, 59, 0.3); }
+  50% { box-shadow: 0 0 20px 4px rgba(196, 151, 59, 0.1); }
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 3s ease-in-out infinite;
+}
