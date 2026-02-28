@@ -10,6 +10,8 @@ import {
   ArrowLeft,
   ChevronRight,
   Hash,
+  Cloud,
+  ExternalLink,
 } from 'lucide-react';
 import type { Writing, WritingStatus } from '@/types';
 import { generateId } from '@/utils/idGenerator';
@@ -17,6 +19,11 @@ import TiptapEditor from '@/components/editor/TiptapEditor';
 import TagInput from '@/components/common/TagInput';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
+import GoogleDocsPicker from '@/components/writings/GoogleDocsPicker';
+import GoogleDocBadge from '@/components/writings/GoogleDocBadge';
+import AiToolbar from '@/components/writings/AiToolbar';
+import { useGoogleStore } from '@/stores/googleStore';
+import { fetchGoogleDocForAi } from '@/services/googleDocs';
 
 const STATUS_CONFIG: Record<WritingStatus, { icon: typeof Lightbulb; label: string; labelEs: string; color: string; bg: string }> = {
   idea: { icon: Lightbulb, label: 'Ideas', labelEs: 'Ideas', color: '#d4a843', bg: 'rgba(212, 168, 67, 0.12)' },
@@ -36,14 +43,18 @@ interface WritingsViewProps {
   onAdd: (writing: Writing) => void;
   onEdit: (id: string, changes: Partial<Writing>) => void;
   onDelete: (id: string) => void;
+  onRefresh?: () => void;
 }
 
-export default function WritingsView({ projectId, writings, onAdd, onEdit, onDelete }: WritingsViewProps) {
+export default function WritingsView({ projectId, writings, onAdd, onEdit, onDelete, onRefresh }: WritingsViewProps) {
   const [activeStatus, setActiveStatus] = useState<WritingStatus>('draft');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [openWriting, setOpenWriting] = useState<Writing | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [editedTitle, setEditedTitle] = useState('');
+  const [showGooglePicker, setShowGooglePicker] = useState(false);
+
+  const { accessToken } = useGoogleStore();
 
   // New writing form
   const [newTitle, setNewTitle] = useState('');
@@ -115,6 +126,96 @@ export default function WritingsView({ projectId, writings, onAdd, onEdit, onDel
     }
   };
 
+  const handleSynopsisUpdate = (synopsis: string) => {
+    if (!openWriting) return;
+    onEdit(openWriting.id, { synopsis });
+    setOpenWriting({ ...openWriting, synopsis });
+  };
+
+  // ---- Google Doc Detail View ----
+  if (openWriting?.isGoogleDoc) {
+    const config = STATUS_CONFIG[openWriting.status];
+
+    const contentFetcher = accessToken && openWriting.googleDocId
+      ? () => fetchGoogleDocForAi(accessToken, openWriting.googleDocId!)
+      : undefined;
+
+    return (
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setOpenWriting(null)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary transition rounded-lg hover:bg-elevated"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+          <div className="flex-1" />
+          {/* Status switcher */}
+          <div className="flex items-center gap-1 bg-surface border border-border rounded-lg px-1 py-0.5">
+            {(Object.entries(STATUS_CONFIG) as [WritingStatus, typeof config][]).map(([st, cfg]) => {
+              const Icon = cfg.icon;
+              return (
+                <button
+                  key={st}
+                  onClick={() => handleStatusChange(openWriting.id, st)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition ${
+                    openWriting.status === st ? 'font-semibold' : 'text-text-muted hover:text-text-primary'
+                  }`}
+                  style={openWriting.status === st ? { color: cfg.color, backgroundColor: cfg.bg } : {}}
+                >
+                  <Icon size={13} />
+                  {cfg.labelEs}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Title */}
+        <h1 className="text-2xl font-serif font-bold text-text-primary">{openWriting.title}</h1>
+
+        {/* Metadata */}
+        <div className="flex items-center gap-4 text-xs text-text-muted">
+          <GoogleDocBadge lastSyncedAt={openWriting.lastSyncedAt} googleDocUrl={openWriting.googleDocUrl} />
+        </div>
+
+        {/* Open in Google Docs */}
+        <div className="flex items-center gap-3 p-4 bg-blue-500/5 border border-blue-400/20 rounded-xl">
+          <Cloud size={20} className="text-blue-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-text-primary">El contenido vive en Google Docs</p>
+            <p className="text-xs text-text-muted mt-0.5">Escribe ahí y usa las herramientas de IA aquí abajo para analizarlo.</p>
+          </div>
+          <a
+            href={openWriting.googleDocUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition flex-shrink-0"
+          >
+            Abrir
+            <ExternalLink size={14} />
+          </a>
+        </div>
+
+        {/* AI Tools */}
+        <div className="space-y-2">
+          <p className="text-xs text-text-dim uppercase tracking-wider font-medium">Herramientas IA</p>
+          <p className="text-xs text-text-muted">
+            Al hacer clic, Claude cargará el documento desde Google Docs y lo analizará.
+          </p>
+          <AiToolbar
+            writing={openWriting}
+            projectId={projectId}
+            onSynopsisUpdate={handleSynopsisUpdate}
+            contentFetcher={contentFetcher}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // ---- Writing Editor View ----
   if (openWriting) {
     const config = STATUS_CONFIG[openWriting.status];
@@ -172,7 +273,7 @@ export default function WritingsView({ projectId, writings, onAdd, onEdit, onDel
           placeholder="Untitled writing..."
         />
 
-        {/* Word count & chapter */}
+        {/* Word count, chapter & Google Doc badge */}
         <div className="flex items-center gap-4 text-xs text-text-muted">
           <span>{wc.toLocaleString()} words</span>
           {openWriting.chapter !== undefined && (
@@ -185,7 +286,20 @@ export default function WritingsView({ projectId, writings, onAdd, onEdit, onDel
             <StatusIcon size={12} className="inline mr-1" style={{ color: config.color }} />
             {config.labelEs}
           </span>
+          {openWriting.isGoogleDoc && (
+            <GoogleDocBadge
+              lastSyncedAt={openWriting.lastSyncedAt}
+              googleDocUrl={openWriting.googleDocUrl}
+            />
+          )}
         </div>
+
+        {/* AI Toolbar */}
+        <AiToolbar
+          writing={{ ...openWriting, content: editedContent }}
+          projectId={projectId}
+          onSynopsisUpdate={handleSynopsisUpdate}
+        />
 
         {/* Editor */}
         <TiptapEditor
@@ -227,6 +341,14 @@ export default function WritingsView({ projectId, writings, onAdd, onEdit, onDel
         })}
 
         <div className="flex-1" />
+
+        <button
+          onClick={() => setShowGooglePicker(true)}
+          className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-lg hover:text-blue-400 hover:border-blue-400/30 transition"
+        >
+          <Cloud size={16} />
+          Google Docs
+        </button>
 
         <button
           onClick={() => { setNewStatus(activeStatus); setShowCreateForm(true); }}
@@ -285,16 +407,19 @@ export default function WritingsView({ projectId, writings, onAdd, onEdit, onDel
                         <p className="text-xs text-text-muted truncate max-w-xs">{writing.synopsis}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-2">
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
                       <span className="text-[10px] text-text-dim">
                         {writing.wordCount.toLocaleString()} words
                       </span>
                       <span className="text-[10px] text-text-dim">
                         Updated {new Date(writing.updatedAt).toLocaleDateString()}
                       </span>
+                      {writing.isGoogleDoc && (
+                        <GoogleDocBadge compact />
+                      )}
                       {writing.tags.length > 0 && (
                         <div className="flex gap-1">
-                          {writing.tags.slice(0, 3).map(tag => (
+                          {writing.tags.filter(t => t !== 'google-doc').slice(0, 3).map(tag => (
                             <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-elevated rounded text-text-dim">
                               {tag}
                             </span>
@@ -414,6 +539,17 @@ export default function WritingsView({ projectId, writings, onAdd, onEdit, onDel
           </div>
         </div>
       </Modal>
+
+      {/* Google Docs Picker */}
+      <GoogleDocsPicker
+        open={showGooglePicker}
+        onClose={() => setShowGooglePicker(false)}
+        projectId={projectId}
+        existingWritings={writings}
+        onImported={() => {
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 }

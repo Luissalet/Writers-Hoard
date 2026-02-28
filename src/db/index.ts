@@ -14,6 +14,7 @@ import type {
   ExternalLink,
   Writing,
   Tag,
+  AppSettings,
 } from '../types';
 
 export class WritersHoardDB extends Dexie {
@@ -31,6 +32,7 @@ export class WritersHoardDB extends Dexie {
   inspirationImages!: Table<InspirationImage>;
   externalLinks!: Table<ExternalLink>;
   tags!: Table<Tag>;
+  settings!: Table<AppSettings>;
 
   constructor() {
     super('WritersHoardDB');
@@ -49,6 +51,23 @@ export class WritersHoardDB extends Dexie {
       inspirationImages: 'id, projectId, collectionId, *tags',
       externalLinks: 'id, projectId, type, *tags',
       tags: 'id, name',
+    });
+    this.version(3).stores({
+      projects: 'id, type, parentId, status, updatedAt',
+      codexEntries: 'id, projectId, type, *tags, updatedAt',
+      writings: 'id, projectId, status, *tags, updatedAt, googleDocId',
+      timelines: 'id, projectId',
+      timelineEvents: 'id, projectId, timelineId, order',
+      yarnBoards: 'id, projectId',
+      yarnNodes: 'id, projectId, boardId',
+      yarnEdges: 'id, boardId, sourceId, targetId',
+      worldMaps: 'id, projectId',
+      mapPins: 'id, projectId, mapId',
+      imageCollections: 'id, projectId',
+      inspirationImages: 'id, projectId, collectionId, *tags',
+      externalLinks: 'id, projectId, type, *tags',
+      tags: 'id, name',
+      settings: 'id, key',
     });
   }
 }

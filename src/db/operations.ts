@@ -172,6 +172,10 @@ export async function createYarnEdge(edge: YarnEdge): Promise<string> {
   return db.yarnEdges.add(edge);
 }
 
+export async function updateYarnEdge(id: string, changes: Partial<YarnEdge>): Promise<void> {
+  await db.yarnEdges.update(id, changes);
+}
+
 export async function deleteYarnEdge(id: string): Promise<void> {
   await db.yarnEdges.delete(id);
 }
@@ -263,6 +267,30 @@ export async function deleteExternalLink(id: string): Promise<void> {
   await db.externalLinks.delete(id);
 }
 
+// ===== Settings =====
+export async function getSetting(key: string): Promise<string | undefined> {
+  const setting = await db.settings.where('key').equals(key).first();
+  return setting?.value;
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  const existing = await db.settings.where('key').equals(key).first();
+  if (existing) {
+    await db.settings.update(existing.id, { value });
+  } else {
+    await db.settings.add({ id: `set_${key}`, key, value });
+  }
+}
+
+export async function getAllSettings(): Promise<Record<string, string>> {
+  const settings = await db.settings.toArray();
+  const result: Record<string, string> = {};
+  for (const s of settings) {
+    result[s.key] = s.value;
+  }
+  return result;
+}
+
 // ===== Export / Import =====
 export async function exportProjectData(projectId: string) {
   const [project, entries, writings, timelines, events, boards, nodes, edges, maps, pins, collections, images, links] = await Promise.all([
@@ -300,4 +328,118 @@ export async function exportProjectData(projectId: string) {
     externalLinks: links,
     exportedAt: Date.now(),
   };
+}
+
+export async function importProjectData(data: Awaited<ReturnType<typeof exportProjectData>>): Promise<string> {
+  const idMap = new Map<string, string>();
+  const remap = (oldId: string, prefix: string): string => {
+    if (!idMap.has(oldId)) {
+      idMap.set(oldId, `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    }
+    return idMap.get(oldId)!;
+  };
+
+  const newProjectId = remap(data.project!.id, 'proj');
+
+  await db.transaction('rw', [
+    db.projects, db.codexEntries, db.writings, db.timelines, db.timelineEvents,
+    db.yarnBoards, db.yarnNodes, db.yarnEdges, db.worldMaps, db.mapPins,
+    db.imageCollections, db.inspirationImages, db.externalLinks,
+  ], async () => {
+    // Project
+    await db.projects.add({
+      ...data.project!,
+      id: newProjectId,
+      title: `${data.project!.title} (Imported)`,
+      updatedAt: Date.now(),
+    });
+
+    // Codex entries
+    for (const e of data.codexEntries || []) {
+      await db.codexEntries.add({ ...e, id: remap(e.id, 'codex'), projectId: newProjectId });
+    }
+
+    // Writings
+    for (const w of data.writings || []) {
+      await db.writings.add({ ...w, id: remap(w.id, 'wr'), projectId: newProjectId });
+    }
+
+    // Timelines
+    for (const t of data.timelines || []) {
+      await db.timelines.add({ ...t, id: remap(t.id, 'tl'), projectId: newProjectId });
+    }
+
+    // Timeline events
+    for (const ev of data.timelineEvents || []) {
+      await db.timelineEvents.add({
+        ...ev,
+        id: remap(ev.id, 'evt'),
+        projectId: newProjectId,
+        timelineId: remap(ev.timelineId, 'tl'),
+      });
+    }
+
+    // Yarn boards
+    for (const b of data.yarnBoards || []) {
+      await db.yarnBoards.add({ ...b, id: remap(b.id, 'board'), projectId: newProjectId });
+    }
+
+    // Yarn nodes
+    for (const n of data.yarnNodes || []) {
+      await db.yarnNodes.add({
+        ...n,
+        id: remap(n.id, 'ynode'),
+        projectId: newProjectId,
+        boardId: remap(n.boardId, 'board'),
+      });
+    }
+
+    // Yarn edges
+    for (const e of data.yarnEdges || []) {
+      await db.yarnEdges.add({
+        ...e,
+        id: remap(e.id, 'edge'),
+        boardId: remap(e.boardId, 'board'),
+        sourceId: remap(e.sourceId, 'ynode'),
+        targetId: remap(e.targetId, 'ynode'),
+      });
+    }
+
+    // World maps
+    for (const m of data.worldMaps || []) {
+      await db.worldMaps.add({ ...m, id: remap(m.id, 'map'), projectId: newProjectId });
+    }
+
+    // Map pins
+    for (const p of data.mapPins || []) {
+      await db.mapPins.add({
+        ...p,
+        id: remap(p.id, 'pin'),
+        projectId: newProjectId,
+        mapId: remap(p.mapId, 'map'),
+      });
+    }
+
+    // Image collections
+    for (const c of data.imageCollections || []) {
+      await db.imageCollections.add({ ...c, id: remap(c.id, 'col'), projectId: newProjectId });
+    }
+
+    // Inspiration images
+    for (const img of data.inspirationImages || []) {
+      await db.inspirationImages.add({
+        ...img,
+        id: remap(img.id, 'img'),
+        projectId: newProjectId,
+        collectionId: img.collectionId ? remap(img.collectionId, 'col') : undefined,
+      });
+    }
+
+    // External links
+    for (const l of data.externalLinks || []) {
+      await db.externalLinks.add({ ...l, id: remap(l.id, 'link'), projectId: newProjectId });
+    }
+  });
+
+  return newProjectId;
 }

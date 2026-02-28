@@ -68,10 +68,15 @@ export function useYarnBoardData(boardId: string) {
     await refresh();
   }, [refresh]);
 
+  const updateEdge = useCallback(async (id: string, changes: Partial<YarnEdge>) => {
+    await ops.updateYarnEdge(id, changes);
+    await refresh();
+  }, [refresh]);
+
   const removeEdge = useCallback(async (id: string) => {
     await ops.deleteYarnEdge(id);
     await refresh();
   }, [refresh]);
 
-  return { nodes, edges, loading, refresh, addNode, updateNode, removeNode, addEdge, removeEdge };
+  return { nodes, edges, loading, refresh, addNode, updateNode, removeNode, addEdge, updateEdge, removeEdge };
 }

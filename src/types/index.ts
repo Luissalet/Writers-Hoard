@@ -154,6 +154,43 @@ export interface Writing {
   tags: string[];
   createdAt: number;
   updatedAt: number;
+  // Google Docs integration
+  googleDocId?: string;
+  googleDocUrl?: string;
+  googleDocName?: string;
+  lastSyncedAt?: number;
+  syncDirection?: 'pull' | 'push' | 'manual';
+  isGoogleDoc?: boolean;
+}
+
+// AI Types
+export interface AiConfig {
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+}
+
+export interface ExtractedCharacter {
+  nombre: string;
+  descripcionFisica: string;
+  personalidad: string;
+  relaciones: string;
+  citasRelevantes: string[];
+  rol: 'protagonista' | 'secundario' | 'mencionado';
+}
+
+export interface ConsistencyIssue {
+  tipo: 'descripcion' | 'continuidad' | 'nombre' | 'temporal' | 'ubicacion';
+  descripcion: string;
+  capitulos: string[];
+  gravedad: 'alta' | 'media' | 'baja';
+}
+
+// App Settings (persisted in Dexie)
+export interface AppSettings {
+  id: string;
+  key: string;
+  value: string;
 }
 
 // External Links

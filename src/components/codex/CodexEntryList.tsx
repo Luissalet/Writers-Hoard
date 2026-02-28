@@ -156,15 +156,20 @@ export default function CodexEntryList({ projectId, entries, onAdd, onEdit, onDe
       <Modal open={!!selectedEntry} onClose={() => setSelectedEntry(null)} title={selectedEntry?.title} wide>
         {selectedEntry && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs capitalize px-2 py-1 rounded" style={{ backgroundColor: `${typeColors[selectedEntry.type]}20`, color: typeColors[selectedEntry.type] }}>
-                {selectedEntry.type}
-              </span>
-              {selectedEntry.tags.map(tag => (
-                <span key={tag} className="text-xs px-2 py-1 bg-elevated rounded text-text-muted">
-                  {tag}
+            <div className="flex items-start gap-4 mb-4">
+              {selectedEntry.avatar && (
+                <img src={selectedEntry.avatar} alt="" className="w-24 h-24 rounded-xl object-cover border border-border flex-shrink-0" />
+              )}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs capitalize px-2 py-1 rounded" style={{ backgroundColor: `${typeColors[selectedEntry.type]}20`, color: typeColors[selectedEntry.type] }}>
+                  {selectedEntry.type}
                 </span>
-              ))}
+                {selectedEntry.tags.map(tag => (
+                  <span key={tag} className="text-xs px-2 py-1 bg-elevated rounded text-text-muted">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Fields */}

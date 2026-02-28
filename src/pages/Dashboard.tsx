@@ -1,26 +1,48 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Feather } from 'lucide-react';
+import { Plus, Feather, Upload } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
 import ProjectCard from '@/components/bubbles/ProjectCard';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
 import TopBar from '@/components/layout/TopBar';
 import { generateId } from '@/utils/idGenerator';
+import { importProjectData } from '@/db/operations';
 import type { Project } from '@/types';
 
 const PROJECT_COLORS = ['#c4973b', '#7c5cbf', '#4a7ec4', '#4a9e6d', '#c4463a', '#d4a843', '#9b7ed8', '#e4a853'];
 
 export default function Dashboard() {
-  const { projects, loading, addProject, removeProject } = useProjects();
+  const { projects, loading, addProject, removeProject, refresh } = useProjects();
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: '',
     type: 'standalone' as Project['type'],
     description: '',
     color: PROJECT_COLORS[0],
   });
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const newId = await importProjectData(data);
+      await refresh();
+      navigate(`/project/${newId}`);
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert('Error importing project. Make sure the file is a valid export.');
+    } finally {
+      setImporting(false);
+      if (importRef.current) importRef.current.value = '';
+    }
+  };
 
   const handleCreate = async () => {
     if (!form.title.trim()) return;
@@ -52,13 +74,24 @@ export default function Dashboard() {
               {projects.length} {projects.length === 1 ? 'world' : 'worlds'} in your hoard
             </p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent-gold text-deep font-semibold rounded-xl hover:bg-accent-amber transition shadow-lg shadow-accent-gold/20"
-          >
-            <Plus size={18} />
-            New Project
-          </button>
+          <div className="flex items-center gap-3">
+            <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+            <button
+              onClick={() => importRef.current?.click()}
+              disabled={importing}
+              className="flex items-center gap-2 px-4 py-2.5 border border-border text-text-muted rounded-xl hover:text-text-primary hover:bg-elevated transition"
+            >
+              <Upload size={16} />
+              {importing ? 'Importing...' : 'Import'}
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-accent-gold text-deep font-semibold rounded-xl hover:bg-accent-amber transition shadow-lg shadow-accent-gold/20"
+            >
+              <Plus size={18} />
+              New Project
+            </button>
+          </div>
         </div>
 
         {/* Grid */}
