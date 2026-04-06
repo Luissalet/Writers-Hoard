@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Feather, Upload } from 'lucide-react';
+import { Plus, Feather, Upload, Download, Database } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
 import ProjectCard from '@/components/bubbles/ProjectCard';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
 import TopBar from '@/components/layout/TopBar';
 import { generateId } from '@/utils/idGenerator';
-import { importProjectData } from '@/db/operations';
+import { importProjectData, importFullDatabase } from '@/db/operations';
+import { exportFullZip, importFullZip } from '@/services/zipBackup';
 import type { Project } from '@/types';
 
 const PROJECT_COLORS = ['#c4973b', '#7c5cbf', '#4a7ec4', '#4a9e6d', '#c4463a', '#d4a843', '#9b7ed8', '#e4a853'];
@@ -18,6 +19,8 @@ export default function Dashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [importing, setImporting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const fullImportRef = useRef<HTMLInputElement>(null);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({
     title: '',
     type: 'standalone' as Project['type'],
@@ -41,6 +44,57 @@ export default function Dashboard() {
     } finally {
       setImporting(false);
       if (importRef.current) importRef.current.value = '';
+    }
+  };
+
+  const handleFullExport = async () => {
+    setExporting(true);
+    try {
+      await exportFullZip();
+    } catch (err) {
+      console.error('Full export failed:', err);
+      alert('Error exporting database.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleFullImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!confirm('Esto REEMPLAZARÁ todos tus datos actuales con el backup importado. ¿Estás seguro?')) {
+      if (fullImportRef.current) fullImportRef.current.value = '';
+      return;
+    }
+    setImporting(true);
+    try {
+      if (file.name.endsWith('.zip')) {
+        // Structured ZIP backup
+        await importFullZip(file);
+        await refresh();
+        window.location.reload();
+      } else if (file.name.endsWith('.json')) {
+        // Legacy JSON backup
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (data.fullExport) {
+          await importFullDatabase(data);
+          await refresh();
+          window.location.reload();
+        } else {
+          const newId = await importProjectData(data);
+          await refresh();
+          navigate(`/project/${newId}`);
+        }
+      } else {
+        alert('Formato no soportado. Usa un archivo .zip o .json');
+      }
+    } catch (err) {
+      console.error('Full import failed:', err);
+      alert('Error importing backup. Make sure the file is a valid export.');
+    } finally {
+      setImporting(false);
+      if (fullImportRef.current) fullImportRef.current.value = '';
     }
   };
 
@@ -76,13 +130,39 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+            <input ref={fullImportRef} type="file" accept=".zip,.json" className="hidden" onChange={handleFullImport} />
+
+            {/* Full backup controls */}
+            <button
+              onClick={handleFullExport}
+              disabled={exporting}
+              className="flex items-center gap-2 px-3 py-2.5 border border-accent-plum/30 text-accent-plum-light rounded-xl hover:bg-accent-plum/10 transition text-sm"
+              title="Export entire database (all projects) as a backup"
+            >
+              <Database size={14} />
+              <Download size={14} />
+              {exporting ? 'Exporting...' : 'Full Backup'}
+            </button>
+            <button
+              onClick={() => fullImportRef.current?.click()}
+              disabled={importing}
+              className="flex items-center gap-2 px-3 py-2.5 border border-accent-plum/30 text-accent-plum-light rounded-xl hover:bg-accent-plum/10 transition text-sm"
+              title="Restore from a full backup (replaces all data)"
+            >
+              <Database size={14} />
+              <Upload size={14} />
+              {importing ? 'Restoring...' : 'Restore Backup'}
+            </button>
+
+            <div className="w-px h-8 bg-border" />
+
             <button
               onClick={() => importRef.current?.click()}
               disabled={importing}
               className="flex items-center gap-2 px-4 py-2.5 border border-border text-text-muted rounded-xl hover:text-text-primary hover:bg-elevated transition"
             >
               <Upload size={16} />
-              {importing ? 'Importing...' : 'Import'}
+              {importing ? 'Importing...' : 'Import Project'}
             </button>
             <button
               onClick={() => setShowCreate(true)}

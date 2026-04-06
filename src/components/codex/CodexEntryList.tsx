@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plus, Search, User, MapPin, Sword, Shield, Sparkles, HelpCircle } from 'lucide-react';
-import type { CodexEntry, CodexEntryType } from '@/types';
+import { Plus, Search, User, MapPin, Sword, Shield, Sparkles, HelpCircle, Image as ImageIcon, X } from 'lucide-react';
+import type { CodexEntry, CodexEntryType, InspirationImage } from '@/types';
 import Modal from '@/components/common/Modal';
 import CodexEntryForm from './CodexEntryForm';
 import EmptyState from '@/components/common/EmptyState';
@@ -28,12 +28,14 @@ const typeColors: Record<CodexEntryType, string> = {
 interface CodexEntryListProps {
   projectId: string;
   entries: CodexEntry[];
+  images?: InspirationImage[];
   onAdd: (entry: CodexEntry) => void;
   onEdit: (id: string, changes: Partial<CodexEntry>) => void;
   onDelete: (id: string) => void;
 }
 
-export default function CodexEntryList({ projectId, entries, onAdd, onEdit, onDelete }: CodexEntryListProps) {
+export default function CodexEntryList({ projectId, entries, images = [], onAdd, onEdit, onDelete }: CodexEntryListProps) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editEntry, setEditEntry] = useState<CodexEntry | null>(null);
   const [search, setSearch] = useState('');
@@ -189,6 +191,33 @@ export default function CodexEntryList({ projectId, entries, onAdd, onEdit, onDe
               </div>
             )}
 
+            {/* Linked Images Gallery */}
+            {(() => {
+              const entryImages = images.filter(img =>
+                (img.linkedEntryIds || []).includes(selectedEntry.id)
+              );
+              if (entryImages.length === 0) return null;
+              return (
+                <div>
+                  <h4 className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-3">
+                    <ImageIcon size={14} className="text-accent-gold" />
+                    Gallery ({entryImages.length})
+                  </h4>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                    {entryImages.map(img => (
+                      <button
+                        key={img.id}
+                        onClick={() => setLightboxSrc(img.imageData)}
+                        className="aspect-square rounded-lg overflow-hidden border border-border hover:border-accent-gold/40 transition"
+                      >
+                        <img src={img.imageData} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => { setSelectedEntry(null); setEditEntry(selectedEntry); }}
@@ -206,6 +235,24 @@ export default function CodexEntryList({ projectId, entries, onAdd, onEdit, onDe
           </div>
         )}
       </Modal>
+
+      {/* Image lightbox */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition">
+            <X size={24} className="text-white" />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

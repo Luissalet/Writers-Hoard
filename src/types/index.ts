@@ -135,7 +135,8 @@ export interface InspirationImage {
   thumbnailData?: string; // compressed base64
   tags: string[];
   notes: string;
-  linkedEntryId?: string;
+  linkedEntryId?: string; // deprecated, use linkedEntryIds
+  linkedEntryIds?: string[]; // IDs of codex entries linked to this image
   createdAt: number;
 }
 

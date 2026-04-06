@@ -427,11 +427,18 @@ export async function importProjectData(data: Awaited<ReturnType<typeof exportPr
 
     // Inspiration images
     for (const img of data.inspirationImages || []) {
+      // Migrate linkedEntryId -> linkedEntryIds if needed
+      const linkedEntryIds = img.linkedEntryIds
+        ? img.linkedEntryIds.map((eid: string) => remap(eid, 'codex'))
+        : img.linkedEntryId
+          ? [remap(img.linkedEntryId, 'codex')]
+          : [];
       await db.inspirationImages.add({
         ...img,
         id: remap(img.id, 'img'),
         projectId: newProjectId,
         collectionId: img.collectionId ? remap(img.collectionId, 'col') : undefined,
+        linkedEntryIds,
       });
     }
 
@@ -442,4 +449,91 @@ export async function importProjectData(data: Awaited<ReturnType<typeof exportPr
   });
 
   return newProjectId;
+}
+
+// ===== Full Database Export / Import (all projects) =====
+export async function exportFullDatabase() {
+  const [projects, codexEntries, writings, timelines, timelineEvents, yarnBoards, yarnNodes, yarnEdges, worldMaps, mapPins, imageCollections, inspirationImages, externalLinks, tags, settings] = await Promise.all([
+    db.projects.toArray(),
+    db.codexEntries.toArray(),
+    db.writings.toArray(),
+    db.timelines.toArray(),
+    db.timelineEvents.toArray(),
+    db.yarnBoards.toArray(),
+    db.yarnNodes.toArray(),
+    db.yarnEdges.toArray(),
+    db.worldMaps.toArray(),
+    db.mapPins.toArray(),
+    db.imageCollections.toArray(),
+    db.inspirationImages.toArray(),
+    db.externalLinks.toArray(),
+    db.tags.toArray(),
+    db.settings.toArray(),
+  ]);
+
+  return {
+    version: 1,
+    fullExport: true,
+    projects,
+    codexEntries,
+    writings,
+    timelines,
+    timelineEvents,
+    yarnBoards,
+    yarnNodes,
+    yarnEdges,
+    worldMaps,
+    mapPins,
+    imageCollections,
+    inspirationImages,
+    externalLinks,
+    tags,
+    settings,
+    exportedAt: Date.now(),
+  };
+}
+
+export async function importFullDatabase(data: Awaited<ReturnType<typeof exportFullDatabase>>): Promise<void> {
+  // Clear all existing data, then import everything with original IDs
+  await db.transaction('rw', [
+    db.projects, db.codexEntries, db.writings, db.timelines, db.timelineEvents,
+    db.yarnBoards, db.yarnNodes, db.yarnEdges, db.worldMaps, db.mapPins,
+    db.imageCollections, db.inspirationImages, db.externalLinks, db.tags, db.settings,
+  ], async () => {
+    // Clear all tables
+    await Promise.all([
+      db.projects.clear(),
+      db.codexEntries.clear(),
+      db.writings.clear(),
+      db.timelines.clear(),
+      db.timelineEvents.clear(),
+      db.yarnBoards.clear(),
+      db.yarnNodes.clear(),
+      db.yarnEdges.clear(),
+      db.worldMaps.clear(),
+      db.mapPins.clear(),
+      db.imageCollections.clear(),
+      db.inspirationImages.clear(),
+      db.externalLinks.clear(),
+      db.tags.clear(),
+      db.settings.clear(),
+    ]);
+
+    // Import all data with original IDs (preserving references)
+    if (data.projects?.length) await db.projects.bulkAdd(data.projects);
+    if (data.codexEntries?.length) await db.codexEntries.bulkAdd(data.codexEntries);
+    if (data.writings?.length) await db.writings.bulkAdd(data.writings);
+    if (data.timelines?.length) await db.timelines.bulkAdd(data.timelines);
+    if (data.timelineEvents?.length) await db.timelineEvents.bulkAdd(data.timelineEvents);
+    if (data.yarnBoards?.length) await db.yarnBoards.bulkAdd(data.yarnBoards);
+    if (data.yarnNodes?.length) await db.yarnNodes.bulkAdd(data.yarnNodes);
+    if (data.yarnEdges?.length) await db.yarnEdges.bulkAdd(data.yarnEdges);
+    if (data.worldMaps?.length) await db.worldMaps.bulkAdd(data.worldMaps);
+    if (data.mapPins?.length) await db.mapPins.bulkAdd(data.mapPins);
+    if (data.imageCollections?.length) await db.imageCollections.bulkAdd(data.imageCollections);
+    if (data.inspirationImages?.length) await db.inspirationImages.bulkAdd(data.inspirationImages);
+    if (data.externalLinks?.length) await db.externalLinks.bulkAdd(data.externalLinks);
+    if (data.tags?.length) await db.tags.bulkAdd(data.tags);
+    if (data.settings?.length) await db.settings.bulkAdd(data.settings);
+  });
 }

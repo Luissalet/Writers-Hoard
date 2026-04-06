@@ -191,6 +191,7 @@ export default function ProjectDetail() {
             <CodexEntryList
               projectId={id!}
               entries={entries}
+              images={images}
               onAdd={addEntry}
               onEdit={editEntry}
               onDelete={removeEntry}
@@ -582,6 +583,7 @@ export default function ProjectDetail() {
               projectId={id!}
               images={images}
               collections={collections}
+              codexEntries={entries}
               onAdd={addImage}
               onEditImage={editImage}
               onDelete={removeImage}
