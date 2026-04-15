@@ -267,6 +267,45 @@ export class WritersHoardDB extends Dexie {
         }
       });
     });
+
+    // v10: Backfill timeline events with dateMode
+    this.version(10).stores({
+      projects: 'id, mode, type, parentId, status, updatedAt',
+      codexEntries: 'id, projectId, type, *tags, updatedAt',
+      writings: 'id, projectId, status, *tags, updatedAt, googleDocId',
+      timelines: 'id, projectId',
+      timelineEvents: 'id, projectId, timelineId, order, dateMode',
+      yarnBoards: 'id, projectId',
+      yarnNodes: 'id, projectId, boardId',
+      yarnEdges: 'id, boardId, sourceId, targetId',
+      worldMaps: 'id, projectId',
+      mapPins: 'id, projectId, mapId',
+      imageCollections: 'id, projectId',
+      inspirationImages: 'id, projectId, collectionId, *tags, *linkedEntryIds',
+      externalLinks: 'id, projectId, type, *tags',
+      tags: 'id, name',
+      settings: 'id, key',
+      storyboards: 'id, projectId',
+      storyboardPanels: 'id, projectId, storyboardId, order',
+      storyboardConnectors: 'id, storyboardId, sourceId, targetId',
+      scenes: 'id, projectId, order',
+      dialogBlocks: 'id, sceneId, projectId, order',
+      sceneCasts: 'id, sceneId',
+      brainstormBoards: 'id, projectId',
+      brainstormItems: 'id, boardId, projectId, type',
+      brainstormConnections: 'id, boardId, sourceId, targetId',
+      videoPlans: 'id, projectId',
+      videoSegments: 'id, videoPlanId, projectId, order',
+      snapshots: 'id, projectId, source, status, createdAt',
+      biographies: 'id, projectId',
+      biographyFacts: 'id, biographyId, projectId, order, category',
+    }).upgrade(tx => {
+      return tx.table('timelineEvents').toCollection().modify(evt => {
+        if (!evt.dateMode) {
+          evt.dateMode = 'text';
+        }
+      });
+    });
   }
 }
 

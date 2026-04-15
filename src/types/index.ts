@@ -57,13 +57,18 @@ export interface Timeline {
   updatedAt: number;
 }
 
+export type DateMode = 'text' | 'calendar';
+
 export interface TimelineEvent {
   id: string;
   projectId: string;
   timelineId: string;
   title: string;
   description: string;
-  date: string; // Fictional date as free text
+  date: string; // Fictional date as free text, or display string for calendar dates
+  dateMode: DateMode; // 'text' for free-form, 'calendar' for real dates
+  realDate?: string; // ISO date string (YYYY-MM-DD) when dateMode === 'calendar'
+  realDateEnd?: string; // Optional end date for date ranges
   order: number;
   lane: string;
   color: string;
