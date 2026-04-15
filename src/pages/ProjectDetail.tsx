@@ -1,127 +1,51 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { BookOpen, Clock, Map, Network, Image, Link2, Download, PenLine, Plus, Trash2, X, ChevronRight } from 'lucide-react';
+import { Download, Settings2, X, Grip, ChevronUp, ChevronDown } from 'lucide-react';
 import { useProject } from '@/hooks/useProjects';
-import { useCodexEntries } from '@/hooks/useCodexEntries';
-import { useTimelines, useTimelineEvents } from '@/hooks/useTimelineEvents';
-import { useYarnBoards, useYarnBoardData } from '@/hooks/useYarnBoard';
-import { useWorldMaps, useMapPins } from '@/hooks/useMaps';
-import { useInspirationImages, useImageCollections } from '@/hooks/useGallery';
-import { useExternalLinks } from '@/hooks/useExternalLinks';
-import { useWritings } from '@/hooks/useWritings';
-import CodexEntryList from '@/components/codex/CodexEntryList';
-import TimelineView from '@/components/timeline/TimelineView';
-import YarnBoard from '@/components/yarn/YarnBoard';
-import MapView from '@/components/maps/MapView';
-import InspirationGallery from '@/components/gallery/InspirationGallery';
-import ExternalLinksView from '@/components/links/ExternalLinksView';
-import WritingsView from '@/components/writings/WritingsView';
+import { getEnginesByIds, getAllEngines } from '@/engines';
 import TopBar from '@/components/layout/TopBar';
-import { generateId } from '@/utils/idGenerator';
-import { exportProjectData } from '@/db/operations';
-
-type TabId = 'overview' | 'writings' | 'codex' | 'timeline' | 'maps' | 'yarn' | 'gallery' | 'links';
-
-const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
-  { id: 'writings', label: 'Writings', icon: PenLine },
-  { id: 'codex', label: 'Codex', icon: BookOpen },
-  { id: 'timeline', label: 'Timeline', icon: Clock },
-  { id: 'maps', label: 'Maps', icon: Map },
-  { id: 'yarn', label: 'Yarn Board', icon: Network },
-  { id: 'gallery', label: 'Gallery', icon: Image },
-  { id: 'links', label: 'Links', icon: Link2 },
-];
+import Modal from '@/components/common/Modal';
+import { updateProject } from '@/db/operations';
 
 export default function ProjectDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id, tab } = useParams<{ id: string; tab?: string }>();
   const { project, loading } = useProject(id);
-  const [activeTab, setActiveTab] = useState<TabId>('writings');
+  const [showEngineManager, setShowEngineManager] = useState(false);
 
-  // Data hooks
-  const { entries, addEntry, editEntry, removeEntry } = useCodexEntries(id || '');
-  const { timelines, addTimeline, removeTimeline } = useTimelines(id || '');
-  const [activeTimelineId, setActiveTimelineId] = useState<string>('');
-  const [showNewTimeline, setShowNewTimeline] = useState(false);
-  const [newTimelineName, setNewTimelineName] = useState('');
-  const { events, addEvent, editEvent, removeEvent } = useTimelineEvents(activeTimelineId);
+  // Get enabled engines from project
+  const engines = project
+    ? getEnginesByIds(project.engineOrder || project.enabledEngines || [])
+    : [];
 
-  const { boards, addBoard, removeBoard } = useYarnBoards(id || '');
-  const [activeBoardId, setActiveBoardId] = useState<string>('');
-  const [showNewBoard, setShowNewBoard] = useState(false);
-  const [newBoardName, setNewBoardName] = useState('');
-  const { nodes, edges, addNode, updateNode, addEdge, updateEdge, removeNode, removeEdge } = useYarnBoardData(activeBoardId);
+  // Active tab state
+  const [activeEngineId, setActiveEngineId] = useState<string>('');
 
-  const { maps, addMap, editMap, removeMap } = useWorldMaps(id || '');
-  const [activeMapId, setActiveMapId] = useState<string>('');
-  const [showNewMap, setShowNewMap] = useState(false);
-  const [newMapName, setNewMapName] = useState('');
-  const { pins, addPin, removePin } = useMapPins(activeMapId);
-
-  const { images, addImage, editImage, removeImage } = useInspirationImages(id || '');
-  const { collections, addCollection, removeCollection } = useImageCollections(id || '');
-  const { links, addLink, removeLink } = useExternalLinks(id || '');
-  const { writings, addWriting, editWriting, removeWriting, refresh: refreshWritings } = useWritings(id || '');
-
-  // Auto-create default timeline/board/map if none exist
+  // Set initial active engine from URL or first engine
   useEffect(() => {
-    if (timelines.length > 0 && !activeTimelineId) {
-      setActiveTimelineId(timelines[0].id);
+    if (engines.length > 0 && !activeEngineId) {
+      setActiveEngineId(tab || engines[0].id);
     }
-  }, [timelines, activeTimelineId]);
+  }, [engines, activeEngineId, tab]);
 
-  useEffect(() => {
-    if (boards.length > 0 && !activeBoardId) {
-      setActiveBoardId(boards[0].id);
-    }
-  }, [boards, activeBoardId]);
-
-  useEffect(() => {
-    if (maps.length > 0 && !activeMapId) {
-      setActiveMapId(maps[0].id);
-    }
-  }, [maps, activeMapId]);
-
-  const ensureTimeline = async () => {
-    if (timelines.length === 0 && id) {
-      const tl = { id: generateId('tl'), projectId: id, title: 'Main Timeline', createdAt: Date.now(), updatedAt: Date.now() };
-      await addTimeline(tl);
-      setActiveTimelineId(tl.id);
-    }
-  };
-
-  const ensureBoard = async () => {
-    if (boards.length === 0 && id) {
-      const board = { id: generateId('board'), projectId: id, title: 'Main Board', createdAt: Date.now(), updatedAt: Date.now() };
-      await addBoard(board);
-      setActiveBoardId(board.id);
-    }
-  };
-
-  const ensureMap = async () => {
-    if (maps.length === 0 && id) {
-      const map = { id: generateId('map'), projectId: id, title: 'World Map', createdAt: Date.now(), updatedAt: Date.now() };
-      await addMap(map);
-      setActiveMapId(map.id);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'timeline') ensureTimeline();
-    if (activeTab === 'yarn') ensureBoard();
-    if (activeTab === 'maps') ensureMap();
-  }, [activeTab]);
+  const activeEngine = engines.find((e) => e.id === activeEngineId);
 
   const handleExport = async () => {
     if (!id) return;
-    const data = await exportProjectData(id);
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${project?.title || 'project'}-export.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      // Dynamically import to avoid issues in non-browser contexts
+      const { exportProjectData } = await import('@/db/operations');
+      const data = await exportProjectData(id);
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.title || 'project'}-export.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
   };
 
   if (loading) {
@@ -142,466 +66,283 @@ export default function ProjectDetail() {
 
   return (
     <>
-      <TopBar title={project.title} subtitle={`${project.type} · ${project.status}`} />
+      <TopBar
+        title={project.title}
+        subtitle={`${project.type} · ${project.status}`}
+      />
 
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Tab bar */}
         <div className="flex items-center gap-1 px-6 py-2 border-b border-border bg-surface/50 overflow-x-auto flex-shrink-0">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
+          {engines.map((engine) => {
+            const Icon = engine.icon;
             return (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                key={engine.id}
+                onClick={() => setActiveEngineId(engine.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition ${
-                  activeTab === tab.id
+                  activeEngineId === engine.id
                     ? 'bg-accent-gold/15 text-accent-gold font-semibold'
                     : 'text-text-muted hover:text-text-primary hover:bg-elevated'
                 }`}
               >
                 <Icon size={16} />
-                {tab.label}
+                {engine.name}
               </button>
             );
           })}
+
           <div className="flex-1" />
+
+          {/* Engine Manager button */}
+          <button
+            onClick={() => setShowEngineManager(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text-primary transition"
+            title="Manage engines"
+          >
+            <Settings2 size={14} />
+          </button>
+
+          {/* Export button */}
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text-primary transition"
             title="Export project"
           >
-            <Download size={14} /> Export
+            <Download size={14} />
+            Export
           </button>
         </div>
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'writings' && (
-            <WritingsView
-              projectId={id!}
-              writings={writings}
-              onAdd={addWriting}
-              onEdit={editWriting}
-              onDelete={removeWriting}
-              onRefresh={refreshWritings}
-            />
-          )}
-
-          {activeTab === 'codex' && (
-            <CodexEntryList
-              projectId={id!}
-              entries={entries}
-              images={images}
-              onAdd={addEntry}
-              onEdit={editEntry}
-              onDelete={removeEntry}
-            />
-          )}
-
-          {activeTab === 'timeline' && (
-            <div className="space-y-4">
-              {activeTimelineId && (
-                <TimelineView
-                  projectId={id!}
-                  timelineId={activeTimelineId}
-                  events={events}
-                  onAddEvent={addEvent}
-                  onEditEvent={editEvent}
-                  onDeleteEvent={removeEvent}
-                />
-              )}
-
-              {/* Timelines dashboard */}
-              <div className="border border-border rounded-xl bg-surface/50 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                    <Clock size={14} className="text-accent-gold" />
-                    Your Timelines
-                  </h3>
-                  {showNewTimeline ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        value={newTimelineName}
-                        onChange={(e) => setNewTimelineName(e.target.value)}
-                        placeholder="Timeline name..."
-                        className="px-2.5 py-1 bg-elevated border border-border rounded-lg text-sm text-text-primary outline-none focus:border-accent-gold w-40"
-                        autoFocus
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && newTimelineName.trim() && id) {
-                            const tl = { id: generateId('tl'), projectId: id, title: newTimelineName.trim(), createdAt: Date.now(), updatedAt: Date.now() };
-                            await addTimeline(tl);
-                            setActiveTimelineId(tl.id);
-                            setNewTimelineName('');
-                            setShowNewTimeline(false);
-                          }
-                          if (e.key === 'Escape') { setShowNewTimeline(false); setNewTimelineName(''); }
-                        }}
-                      />
-                      <button
-                        onClick={async () => {
-                          if (newTimelineName.trim() && id) {
-                            const tl = { id: generateId('tl'), projectId: id, title: newTimelineName.trim(), createdAt: Date.now(), updatedAt: Date.now() };
-                            await addTimeline(tl);
-                            setActiveTimelineId(tl.id);
-                            setNewTimelineName('');
-                            setShowNewTimeline(false);
-                          }
-                        }}
-                        className="p-1.5 text-accent-gold hover:text-accent-amber transition"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
-                      <button onClick={() => { setShowNewTimeline(false); setNewTimelineName(''); }} className="p-1.5 text-text-muted hover:text-text-primary transition">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowNewTimeline(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent-gold/10 text-accent-gold rounded-lg hover:bg-accent-gold/20 transition"
-                    >
-                      <Plus size={13} />
-                      New Timeline
-                    </button>
-                  )}
-                </div>
-
-                {timelines.length === 0 ? (
-                  <p className="text-sm text-text-dim text-center py-4">No timelines yet. Create one to get started.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                    {timelines.map(tl => {
-                      const isActive = tl.id === activeTimelineId;
-                      return (
-                        <div
-                          key={tl.id}
-                          className={`group relative rounded-lg border-2 transition cursor-pointer ${
-                            isActive
-                              ? 'border-accent-gold bg-accent-gold/10'
-                              : 'border-border bg-elevated hover:border-accent-gold/40'
-                          }`}
-                        >
-                          <button
-                            onClick={() => setActiveTimelineId(tl.id)}
-                            className="w-full text-left p-3"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <Clock size={12} className={isActive ? 'text-accent-gold' : 'text-text-dim'} />
-                              <span className={`text-sm font-serif font-semibold truncate ${isActive ? 'text-accent-gold' : 'text-text-primary'}`}>
-                                {tl.title}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-text-dim">
-                              {new Date(tl.createdAt).toLocaleDateString()}
-                            </p>
-                          </button>
-                          {timelines.length > 1 && (
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (confirm(`Delete timeline "${tl.title}"? All its events will be lost.`)) {
-                                  await removeTimeline(tl.id);
-                                  if (activeTimelineId === tl.id) {
-                                    const remaining = timelines.filter(t => t.id !== tl.id);
-                                    if (remaining.length > 0) setActiveTimelineId(remaining[0].id);
-                                  }
-                                }
-                              }}
-                              className="absolute top-1.5 right-1.5 p-1 rounded-full opacity-0 group-hover:opacity-100 text-text-dim hover:text-danger hover:bg-danger/10 transition"
-                              title="Delete timeline"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+          {activeEngine ? (
+            <activeEngine.component projectId={id!} />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-text-muted">No engines enabled</p>
             </div>
-          )}
-
-          {activeTab === 'yarn' && (
-            <div className="space-y-4">
-              {/* Board canvas */}
-              {activeBoardId && (
-                <YarnBoard
-                  projectId={id!}
-                  boardId={activeBoardId}
-                  initialNodes={nodes}
-                  initialEdges={edges}
-                  onSaveNode={addNode}
-                  onUpdateNode={updateNode}
-                  onSaveEdge={addEdge}
-                  onUpdateEdge={updateEdge}
-                  onDeleteNode={removeNode}
-                  onDeleteEdge={removeEdge}
-                />
-              )}
-
-              {/* Boards dashboard */}
-              <div className="border border-border rounded-xl bg-surface/50 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                    <Network size={14} className="text-accent-gold" />
-                    Your Boards
-                  </h3>
-                  {showNewBoard ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        value={newBoardName}
-                        onChange={(e) => setNewBoardName(e.target.value)}
-                        placeholder="Board name..."
-                        className="px-2.5 py-1 bg-elevated border border-border rounded-lg text-sm text-text-primary outline-none focus:border-accent-gold w-40"
-                        autoFocus
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && newBoardName.trim() && id) {
-                            const board = { id: generateId('board'), projectId: id, title: newBoardName.trim(), createdAt: Date.now(), updatedAt: Date.now() };
-                            await addBoard(board);
-                            setActiveBoardId(board.id);
-                            setNewBoardName('');
-                            setShowNewBoard(false);
-                          }
-                          if (e.key === 'Escape') { setShowNewBoard(false); setNewBoardName(''); }
-                        }}
-                      />
-                      <button
-                        onClick={async () => {
-                          if (newBoardName.trim() && id) {
-                            const board = { id: generateId('board'), projectId: id, title: newBoardName.trim(), createdAt: Date.now(), updatedAt: Date.now() };
-                            await addBoard(board);
-                            setActiveBoardId(board.id);
-                            setNewBoardName('');
-                            setShowNewBoard(false);
-                          }
-                        }}
-                        className="p-1.5 text-accent-gold hover:text-accent-amber transition"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
-                      <button onClick={() => { setShowNewBoard(false); setNewBoardName(''); }} className="p-1.5 text-text-muted hover:text-text-primary transition">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowNewBoard(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent-gold/10 text-accent-gold rounded-lg hover:bg-accent-gold/20 transition"
-                    >
-                      <Plus size={13} />
-                      New Board
-                    </button>
-                  )}
-                </div>
-
-                {boards.length === 0 ? (
-                  <p className="text-sm text-text-dim text-center py-4">No boards yet. Create one to get started.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                    {boards.map(board => {
-                      const isActive = board.id === activeBoardId;
-                      return (
-                        <div
-                          key={board.id}
-                          className={`group relative rounded-lg border-2 transition cursor-pointer ${
-                            isActive
-                              ? 'border-accent-gold bg-accent-gold/10'
-                              : 'border-border bg-elevated hover:border-accent-gold/40'
-                          }`}
-                        >
-                          <button
-                            onClick={() => setActiveBoardId(board.id)}
-                            className="w-full text-left p-3"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <Network size={12} className={isActive ? 'text-accent-gold' : 'text-text-dim'} />
-                              <span className={`text-sm font-serif font-semibold truncate ${isActive ? 'text-accent-gold' : 'text-text-primary'}`}>
-                                {board.title}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-text-dim">
-                              {new Date(board.createdAt).toLocaleDateString()}
-                            </p>
-                          </button>
-
-                          {/* Delete button */}
-                          {boards.length > 1 && (
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (confirm(`Delete board "${board.title}"? All its nodes and connections will be lost.`)) {
-                                  await removeBoard(board.id);
-                                  if (activeBoardId === board.id) {
-                                    const remaining = boards.filter(b => b.id !== board.id);
-                                    if (remaining.length > 0) setActiveBoardId(remaining[0].id);
-                                  }
-                                }
-                              }}
-                              className="absolute top-1.5 right-1.5 p-1 rounded-full opacity-0 group-hover:opacity-100 text-text-dim hover:text-danger hover:bg-danger/10 transition"
-                              title="Delete board"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'maps' && (
-            <div className="space-y-4">
-              {activeMapId && (
-                <MapView
-                  projectId={id!}
-                  mapId={activeMapId}
-                  backgroundImage={maps.find(m => m.id === activeMapId)?.backgroundImage}
-                  pins={pins}
-                  onUploadBackground={(img) => editMap(activeMapId, { backgroundImage: img })}
-                  onAddPin={addPin}
-                  onDeletePin={removePin}
-                />
-              )}
-
-              {/* Maps dashboard */}
-              <div className="border border-border rounded-xl bg-surface/50 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                    <Map size={14} className="text-accent-gold" />
-                    Your Maps
-                  </h3>
-                  {showNewMap ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        value={newMapName}
-                        onChange={(e) => setNewMapName(e.target.value)}
-                        placeholder="Map name..."
-                        className="px-2.5 py-1 bg-elevated border border-border rounded-lg text-sm text-text-primary outline-none focus:border-accent-gold w-40"
-                        autoFocus
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && newMapName.trim() && id) {
-                            const map = { id: generateId('map'), projectId: id, title: newMapName.trim(), createdAt: Date.now(), updatedAt: Date.now() };
-                            await addMap(map);
-                            setActiveMapId(map.id);
-                            setNewMapName('');
-                            setShowNewMap(false);
-                          }
-                          if (e.key === 'Escape') { setShowNewMap(false); setNewMapName(''); }
-                        }}
-                      />
-                      <button
-                        onClick={async () => {
-                          if (newMapName.trim() && id) {
-                            const map = { id: generateId('map'), projectId: id, title: newMapName.trim(), createdAt: Date.now(), updatedAt: Date.now() };
-                            await addMap(map);
-                            setActiveMapId(map.id);
-                            setNewMapName('');
-                            setShowNewMap(false);
-                          }
-                        }}
-                        className="p-1.5 text-accent-gold hover:text-accent-amber transition"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
-                      <button onClick={() => { setShowNewMap(false); setNewMapName(''); }} className="p-1.5 text-text-muted hover:text-text-primary transition">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowNewMap(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent-gold/10 text-accent-gold rounded-lg hover:bg-accent-gold/20 transition"
-                    >
-                      <Plus size={13} />
-                      New Map
-                    </button>
-                  )}
-                </div>
-
-                {maps.length === 0 ? (
-                  <p className="text-sm text-text-dim text-center py-4">No maps yet. Create one to get started.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                    {maps.map(m => {
-                      const isActive = m.id === activeMapId;
-                      return (
-                        <div
-                          key={m.id}
-                          className={`group relative rounded-lg border-2 transition cursor-pointer ${
-                            isActive
-                              ? 'border-accent-gold bg-accent-gold/10'
-                              : 'border-border bg-elevated hover:border-accent-gold/40'
-                          }`}
-                        >
-                          <button
-                            onClick={() => setActiveMapId(m.id)}
-                            className="w-full text-left p-3"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <Map size={12} className={isActive ? 'text-accent-gold' : 'text-text-dim'} />
-                              <span className={`text-sm font-serif font-semibold truncate ${isActive ? 'text-accent-gold' : 'text-text-primary'}`}>
-                                {m.title}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-text-dim">
-                              {new Date(m.createdAt).toLocaleDateString()}
-                            </p>
-                          </button>
-                          {maps.length > 1 && (
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (confirm(`Delete map "${m.title}"? All its pins will be lost.`)) {
-                                  await removeMap(m.id);
-                                  if (activeMapId === m.id) {
-                                    const remaining = maps.filter(mp => mp.id !== m.id);
-                                    if (remaining.length > 0) setActiveMapId(remaining[0].id);
-                                  }
-                                }
-                              }}
-                              className="absolute top-1.5 right-1.5 p-1 rounded-full opacity-0 group-hover:opacity-100 text-text-dim hover:text-danger hover:bg-danger/10 transition"
-                              title="Delete map"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'gallery' && (
-            <InspirationGallery
-              projectId={id!}
-              images={images}
-              collections={collections}
-              codexEntries={entries}
-              onAdd={addImage}
-              onEditImage={editImage}
-              onDelete={removeImage}
-              onAddCollection={addCollection}
-              onDeleteCollection={removeCollection}
-            />
-          )}
-
-          {activeTab === 'links' && (
-            <ExternalLinksView
-              projectId={id!}
-              links={links}
-              onAdd={addLink}
-              onDelete={removeLink}
-            />
           )}
         </div>
       </div>
+
+      {/* Engine Manager Modal */}
+      <EngineManager
+        open={showEngineManager}
+        onClose={() => setShowEngineManager(false)}
+        project={project}
+        onUpdate={async (enabledEngines, engineOrder) => {
+          if (id) {
+            await updateProject(id, {
+              enabledEngines,
+              engineOrder,
+            });
+            setShowEngineManager(false);
+          }
+        }}
+      />
     </>
+  );
+}
+
+interface EngineManagerProps {
+  open: boolean;
+  onClose: () => void;
+  project: any;
+  onUpdate: (enabledEngines: string[], engineOrder: string[]) => Promise<void>;
+}
+
+function EngineManager({
+  open,
+  onClose,
+  project,
+  onUpdate,
+}: EngineManagerProps) {
+  const allEngines = getAllEngines();
+  const [enabledIds, setEnabledIds] = useState<string[]>(
+    project.enabledEngines || []
+  );
+  const [order, setOrder] = useState<string[]>(
+    project.engineOrder || project.enabledEngines || []
+  );
+  const [saving, setSaving] = useState(false);
+
+  // Sync state when modal opens
+  useEffect(() => {
+    if (open) {
+      setEnabledIds(project.enabledEngines || []);
+      setOrder(project.engineOrder || project.enabledEngines || []);
+    }
+  }, [open, project]);
+
+  const toggleEngine = (engineId: string) => {
+    setEnabledIds((prev) => {
+      if (prev.includes(engineId)) {
+        // Disable: remove from both lists
+        setOrder((o) => o.filter((id) => id !== engineId));
+        return prev.filter((id) => id !== engineId);
+      } else {
+        // Enable: add to end of order
+        setOrder((o) => [...o, engineId]);
+        return [...prev, engineId];
+      }
+    });
+  };
+
+  const moveUp = (engineId: string) => {
+    const idx = order.indexOf(engineId);
+    if (idx <= 0) return;
+    const newOrder = [...order];
+    [newOrder[idx], newOrder[idx - 1]] = [newOrder[idx - 1], newOrder[idx]];
+    setOrder(newOrder);
+  };
+
+  const moveDown = (engineId: string) => {
+    const idx = order.indexOf(engineId);
+    if (idx >= order.length - 1) return;
+    const newOrder = [...order];
+    [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+    setOrder(newOrder);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onUpdate(enabledIds, order);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const disabledEngines = allEngines.filter((e) => !enabledIds.includes(e.id));
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Engine Manager"
+      wide={false}
+    >
+      <div className="space-y-6">
+        {/* Enabled Engines - Reorderable */}
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 bg-accent-gold rounded-full" />
+            Active Engines
+          </h3>
+          {order.length === 0 ? (
+            <p className="text-sm text-text-dim text-center py-4">
+              No engines enabled. Add one below.
+            </p>
+          ) : (
+            <div className="space-y-2 bg-elevated rounded-lg p-3">
+              {order.map((engineId, idx) => {
+                const engine = allEngines.find((e) => e.id === engineId);
+                if (!engine) return null;
+                const Icon = engine.icon;
+                return (
+                  <div
+                    key={engineId}
+                    className="flex items-center gap-2 p-3 bg-surface rounded-lg border border-border/50"
+                  >
+                    <Grip size={16} className="text-text-dim cursor-move" />
+                    <Icon size={16} className="text-text-muted flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {engine.name}
+                      </p>
+                      <p className="text-xs text-text-dim truncate">
+                        {engine.description}
+                      </p>
+                    </div>
+
+                    {/* Reorder buttons */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => moveUp(engineId)}
+                        disabled={idx === 0}
+                        className="p-1.5 rounded-lg text-text-muted hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        title="Move up"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        onClick={() => moveDown(engineId)}
+                        disabled={idx === order.length - 1}
+                        className="p-1.5 rounded-lg text-text-muted hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        title="Move down"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
+
+                    {/* Remove button */}
+                    <button
+                      onClick={() => toggleEngine(engineId)}
+                      className="p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition flex-shrink-0"
+                      title="Disable engine"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Available Engines */}
+        {disabledEngines.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-text-dim rounded-full" />
+              Available Engines
+            </h3>
+            <div className="space-y-2 bg-elevated rounded-lg p-3 max-h-64 overflow-y-auto">
+              {disabledEngines.map((engine) => {
+                const Icon = engine.icon;
+                return (
+                  <button
+                    key={engine.id}
+                    onClick={() => toggleEngine(engine.id)}
+                    className="w-full flex items-center gap-3 p-3 bg-surface rounded-lg border border-border/50 hover:border-accent-gold/30 hover:bg-surface/80 transition text-left group"
+                  >
+                    <Icon size={16} className="text-text-muted flex-shrink-0 group-hover:text-accent-gold transition" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate group-hover:text-accent-gold transition">
+                        {engine.name}
+                      </p>
+                      <p className="text-xs text-text-dim truncate">
+                        {engine.description}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded bg-accent-gold/10 text-accent-gold flex-shrink-0">
+                      Add
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2 justify-end pt-4 border-t border-border">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-elevated text-text-primary hover:bg-elevated/80 transition text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-accent-gold text-surface hover:bg-accent-amber disabled:opacity-60 transition text-sm font-medium"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }

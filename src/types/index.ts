@@ -2,10 +2,14 @@
 // Writer's Hoard — Core Data Types
 // ============================================
 
+// Project Mode (determines which engines are visible by default)
+export type ProjectMode = 'novelist' | 'biographer' | 'reporter' | 'playwright' | 'content-creator' | 'custom';
+
 // Project (Bubble)
 export interface Project {
   id: string;
   title: string;
+  mode: ProjectMode;                    // Writer type / engine preset
   type: 'saga' | 'standalone' | 'collection' | 'idea';
   color: string;
   coverImage?: string; // base64 data URL
@@ -13,6 +17,8 @@ export interface Project {
   parentId?: string; // For books within a saga
   children?: string[]; // IDs of sub-projects
   status: 'draft' | 'in-progress' | 'completed';
+  enabledEngines: string[];             // Active engine IDs for this project
+  engineOrder: string[];                // Tab ordering (user-customizable)
   createdAt: number;
   updatedAt: number;
 }

@@ -1,7 +1,10 @@
-# Plan: Writer's Hoard - Feature Batch
+# Plan: Writer's Hoard — Unified Creative Platform
 
-## Overview
-7 features/fixes spanning Yarn Board, Codex, Gallery, and AI systems.
+## Architecture Overhaul
+See **[architecture-unified-app.md](./architecture-unified-app.md)** for the full spec: engine registry, project modes, all 9+ engines, database strategy, and migration path.
+
+## Previous Feature Batch (pre-merge)
+7 features/fixes spanning Yarn Board, Codex, Gallery, and AI systems. These will be absorbed into the engine refactor.
 
 ---
 
