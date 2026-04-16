@@ -12,8 +12,8 @@ description: >
 # Update Project Knowledge Graph
 
 You maintain a layered knowledge graph of the Writers Hoard codebase in memory files.
-After making code changes, you need to check whether those changes affect the knowledge graph
-and update it if they do. This keeps future sessions from working with stale architectural context.
+After making code changes, check whether those changes affect the knowledge graph
+and update it if they do. This keeps future sessions from working with stale context.
 
 ## The Knowledge Graph Files
 
@@ -51,46 +51,48 @@ After completing your main task, check: did any of your changes touch these area
 
 ## How to Update
 
-The goal is surgical updates, not full rescans. You already know what you changed.
-
 ### Step 1: Read the current memory files
 
 Read `project_architecture.md` and/or `project_engine_catalog.md` — whichever is relevant to your changes.
 
 ### Step 2: Identify what's stale
 
-Compare what the memory file says against what you just changed. Be specific — you know exactly which files you touched and what the diff was.
+Compare what the memory file says against what you just changed. You know exactly which files you touched and what the diff was — use that, not guesses.
 
 ### Step 3: Edit the memory files
 
 Use the Edit tool to make targeted updates. Common patterns:
 
 - **Added a new engine**: Add its profile to `project_engine_catalog.md` following the existing format. Update the engine count in `project_architecture.md`. If it changed project mode presets, update those too.
-- **Changed DB schema**: Update the table list in `project_architecture.md` under the Database section.
+- **Changed DB schema**: Update the table list and version in `project_architecture.md` under the Database section.
 - **Added a new store**: Add it to the State Layer section in `project_architecture.md`.
 - **New service**: Add to the Services section.
-- **Engine matured from WIP to complete**: Update its status in `project_engine_catalog.md` and adjust the summary counts.
+- **Engine matured from WIP to complete**: Move it between sections in `project_engine_catalog.md`, update its status and file list, adjust the migration pattern note.
 - **New hook**: Add to the Domain Hooks list.
 - **New shared utility**: Add to the Shared Layer section.
-- **New component area**: If a new component subdirectory was created, note it in the architecture map.
 
 ### Step 4: Keep MEMORY.md accurate
 
-If you changed the engine count or any description in the index entries, update `MEMORY.md` to match. The index lines should be short hooks that help future sessions decide whether to load the full file.
+If you changed the engine count or any description in the index entries, update `MEMORY.md` to match.
 
-## Format Conventions
+## Critical Rules
 
-Follow the existing format in each file — don't introduce new heading levels or restructure unless there's a good reason. The architecture map uses `##` for major sections and inline code for paths/names. The engine catalog uses `###` for each engine with bold labels for Files, Hooks, and Status.
+These rules exist because past updates introduced subtle errors that compounded over time.
 
-Engine status values: **Complete** or **WIP** with a brief reason.
+### Only state facts from the change you made
+Every piece of information you add to the knowledge graph must come from the actual code change you just made. If the prompt says "added a research engine with useResearchSessions and useResearchNotes hooks", those are the only details you know about that engine. Do not invent additional details like what database tables it uses, what its UI looks like, or what its "purpose" is beyond what's directly stated. A brief, factual profile based on what you know is far better than a rich-sounding one that's partly fabricated.
 
-## What NOT to Do
+### Don't touch files unrelated to the change
+If you changed the DB schema but not any engines, do not edit `project_engine_catalog.md` at all. If you added an engine but didn't change the DB schema, don't modify the Database section. Each memory file section is independent — only edit sections directly affected by what you changed.
 
-- Don't do a full project rescan. You just made the changes — you know what they are.
-- Don't crawl import/dependency trees. Update based on what you directly changed.
-- Don't rewrite sections that haven't changed. Surgical edits only.
-- Don't update memory files during your main task — do it after, as a final step.
-- Don't add file-level details (like "line 42 of FooComponent.tsx does X"). Keep it at the architectural level.
+### Count by reading, not by arithmetic
+When updating counts (engine totals, table counts, hook counts), count the actual items listed in the file after your edit. Don't do mental math like "it was 14, I added 1, so it's 15" — off-by-one errors compound. After editing, recount the list and use that number.
+
+### No editorial commentary
+Don't add notes like "(Note: useTimelineEvents moved into Timeline engine as self-contained hook)" or explanatory parentheticals. The knowledge graph is a reference document, not a changelog. State what IS, not what changed.
+
+### Preserve existing format exactly
+Match the heading levels, bold labels, spacing, and structure of the existing entries. Don't introduce new sections (like "Cross-Cutting Hooks") unless the change genuinely requires a new category. When adding an engine profile, copy the format of an adjacent entry.
 
 ## Full Rescan (Manual Trigger Only)
 
