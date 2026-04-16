@@ -89,7 +89,7 @@ If you changed the DB schema but not any engines, do not edit `project_engine_ca
 When updating counts (engine totals, table counts, hook counts), count the actual items listed in the file after your edit. Don't do mental math like "it was 14, I added 1, so it's 15" — off-by-one errors compound. After editing, recount the list and use that number.
 
 ### No editorial commentary
-Don't add notes like "(Note: useTimelineEvents moved into Timeline engine as self-contained hook)" or explanatory parentheticals. The knowledge graph is a reference document, not a changelog. State what IS, not what changed.
+The knowledge graph is a reference document, not a changelog. When you remove a hook from the central hooks list because it moved into an engine, just remove it — don't add "(moved to X engine)" or "Note: this was migrated." When you update an engine's status from WIP to Complete, just write "Complete" — don't add "Migrated from thin wrapper" or similar. If someone reads the file cold, they should see the current state, not a narrative of what changed. Every parenthetical note, migration comment, or explanatory aside you're tempted to add — delete it.
 
 ### Preserve existing format exactly
 Match the heading levels, bold labels, spacing, and structure of the existing entries. Don't introduce new sections (like "Cross-Cutting Hooks") unless the change genuinely requires a new category. When adding an engine profile, copy the format of an adjacent entry.
